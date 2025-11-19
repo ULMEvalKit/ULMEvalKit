@@ -63,6 +63,30 @@ flux_series = {
     )
 }
 
+qwen_image_series = {
+    "Qwen-Image": partial(QwenImage, model_path="Qwen/Qwen-Image")
+}
+
+hunyuan_image_series = {
+    "HunyuanImage": partial(HunyuanImage, model_path="tencent/HunyuanImage-3.0")
+}
+
+hidream_series = {
+    "HiDream-Full": partial(
+        HiDreamImageFull,
+        model_path="HiDream-ai/HiDream-I1-Full",
+    ),
+    "HiDream-Dev": partial(
+        HiDreamImageDev,
+        model_path="HiDream-ai/HiDream-I1-Dev",
+    ),
+    "HiDream-Fast": partial(
+        HiDreamImageFast,
+        model_path="HiDream-ai/HiDream-I1-Fast",
+    ),
+}
+
+
 show_o_series = {
     'Show-o': partial(
         Showo, mode='showo_demo', model_path="showlab/show-o"
@@ -100,6 +124,9 @@ model_groups = [
     t2ir1_series,
     nextstep_series,
     emu3_series,
+    qwen_image_series,
+    hunyuan_image_series,
+    hidream_series,
 ]
 
 for grp in model_groups:
