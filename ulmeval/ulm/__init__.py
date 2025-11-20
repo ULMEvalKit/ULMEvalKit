@@ -12,5 +12,5 @@ from .t2ir1 import T2IR1
 from .nextstep_1 import NextStep1
 from .emu3_gen import Emu3Gen
 from .qwenimage import QwenImage
-from .hunyuanimage import HunyuanImage
 from .hidream import HiDreamImageFull, HiDreamImageDev, HiDreamImageFast
+from .sana import Sana15_1_6B,Sana15_4_8B
