@@ -67,8 +67,16 @@ qwen_image_series = {
     "Qwen-Image": partial(QwenImage, model_path="Qwen/Qwen-Image")
 }
 
-hunyuan_image_series = {
-    "HunyuanImage": partial(HunyuanImage, model_path="tencent/HunyuanImage-3.0")
+
+sana_series = {
+    "Sana-1.5-1.6B": partial(
+        Sana15_1_6B,
+        model_path="Efficient-Large-Model/SANA1.5_1.6B_1024px_diffusers",
+    ),
+    "Sana-1.5-4.8B": partial(
+        Sana15_4_8B,
+        model_path="Efficient-Large-Model/SANA1.5_4.8B_1024px_diffusers",
+    ),
 }
 
 hidream_series = {
@@ -125,7 +133,7 @@ model_groups = [
     nextstep_series,
     emu3_series,
     qwen_image_series,
-    hunyuan_image_series,
+    sana_series,
     hidream_series,
 ]
 
