@@ -9,12 +9,6 @@ from ..smp import splitlen
 
 
 class _BaseSana15(BaseModel):
-    """Minimal Sana-1.5 text-to-image wrapper.
-
-    NOTE:
-        Requires diffusers with SanaPipeline support, e.g.
-        `pip install git+https://github.com/huggingface/diffusers`
-    """
 
     INSTALL_REQ = True
     INTERLEAVE = False
