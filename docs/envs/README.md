@@ -22,5 +22,6 @@ This guide provides environment setup instructions for supported models and benc
 + GenEval++: [paper](https://arxiv.org/abs/2508.09987)
 + ImagineBench: [paper](https://arxiv.org/abs/2508.09987)
 + OmniContext: [paper](https://arxiv.org/abs/2506.18871)
++ WISE: [paper](https://arxiv.org/abs/2503.07265)
 
 *More datasets coming soon...*
