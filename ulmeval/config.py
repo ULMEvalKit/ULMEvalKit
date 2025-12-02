@@ -63,6 +63,38 @@ flux_series = {
     )
 }
 
+qwen_image_series = {
+    "Qwen-Image": partial(QwenImage, model_path="Qwen/Qwen-Image")
+}
+
+
+sana_series = {
+    "Sana-1.5-1.6B": partial(
+        Sana15_1_6B,
+        model_path="Efficient-Large-Model/SANA1.5_1.6B_1024px_diffusers",
+    ),
+    "Sana-1.5-4.8B": partial(
+        Sana15_4_8B,
+        model_path="Efficient-Large-Model/SANA1.5_4.8B_1024px_diffusers",
+    ),
+}
+
+hidream_series = {
+    "HiDream-Full": partial(
+        HiDreamImageFull,
+        model_path="HiDream-ai/HiDream-I1-Full",
+    ),
+    "HiDream-Dev": partial(
+        HiDreamImageDev,
+        model_path="HiDream-ai/HiDream-I1-Dev",
+    ),
+    "HiDream-Fast": partial(
+        HiDreamImageFast,
+        model_path="HiDream-ai/HiDream-I1-Fast",
+    ),
+}
+
+
 show_o_series = {
     'Show-o': partial(
         Showo, mode='showo_demo', model_path="showlab/show-o"
@@ -100,6 +132,9 @@ model_groups = [
     t2ir1_series,
     nextstep_series,
     emu3_series,
+    qwen_image_series,
+    sana_series,
+    hidream_series,
 ]
 
 for grp in model_groups:

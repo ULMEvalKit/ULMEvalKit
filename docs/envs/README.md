@@ -11,7 +11,10 @@ This guide provides environment setup instructions for supported models and benc
 + OmniGen2: [envs](models/Omnigen2.md)/[paper](https://arxiv.org/abs/2506.18871)
 + Flux / Flux-Kontext: [paper](https://arxiv.org/abs/2506.15742)
 + T2I-R1: [envs](models/T2IR1.md)/[paper](https://arxiv.org/abs/2505.00703)
-
++ QwenImage: [envs](models/QwenImage.md)/[paper](https://arxiv.org/abs/2508.02324)
++ SANA1.5: [paper](https://arxiv.org/abs/2501.18427)
++ HiDream: [envs](models/HiDream.md)/[paper](https://arxiv.org/abs/2505.22705)
+  
 *More models coming soon...*
 
 ## Supported Datasets
