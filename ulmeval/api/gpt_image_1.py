@@ -180,7 +180,7 @@ class GPTIMAGE1(BaseAPI):
                 b64_image = response.data[0].b64_json
                 image_bytes = base64.b64decode(b64_image)
                 image = Image.open(BytesIO(image_bytes))
-                return image
+                return 0, image, 'Succeeded! '
             else:
                 raise ValueError("No image data returned from the model.")
         response = self.client.images.generate(
@@ -193,6 +193,6 @@ class GPTIMAGE1(BaseAPI):
             b64_image = response.data[0].b64_json
             image_bytes = base64.b64decode(b64_image)
             image = Image.open(BytesIO(image_bytes))
-            return image
+            return 0, image, 'Succeeded! '
         else:
             raise ValueError("No image data returned from the model.")
