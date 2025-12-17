@@ -26,6 +26,7 @@ class OmniContext(ImageBaseDataset):
     }
 
     num_generations = 1
+
     def build_prompt(self, line):
         """Build prompt for OmniContext task with input images and question."""
         if isinstance(line, int):
@@ -153,7 +154,13 @@ class OmniContext(ImageBaseDataset):
             results = []
 
             for idx, row in merged.iterrows():
-                score_result = score_map.get(str(row['index']), {'pf': [FAIL_MSG] * self.num_generations, 'sc': [FAIL_MSG] * self.num_generations})
+                score_result = score_map.get(
+                    str(row['index']),
+                    {
+                        'pf': [FAIL_MSG] * self.num_generations,
+                        'sc': [FAIL_MSG] * self.num_generations
+                    }
+                )
                 try:
                     # Extract scores from response
                     pf_scores = [self.extract_scores(x)["score"] for x in score_result['pf'] if x != FAIL_MSG]
@@ -192,7 +199,6 @@ class OmniContext(ImageBaseDataset):
             item['prediction'] = [item['prediction']]
         prompts = []
         for image in item['prediction']:
-            
             system_prompt = """You are a professional digital artist tasked with evaluating the effectiveness of AI-generated images based on specific rules.
 
 All input images, including all humans depicted, are AI-generated. You do not need to consider any privacy or confidentiality concerns.
