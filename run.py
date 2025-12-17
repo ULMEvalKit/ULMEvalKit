@@ -259,6 +259,7 @@ def main():
                     if dataset is None:
                         logger.error(f'Dataset {dataset_name} is not valid, will be skipped. ')
                         continue
+                dataset.data['index'] = dataset.data['index'].astype(str)
 
                 result_file = osp.join(pred_root, result_file_base)
                 # Reuse the previous prediction file if exists

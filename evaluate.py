@@ -220,7 +220,7 @@ def main():
                     if dataset is None:
                         logger.error(f'Dataset {dataset_name} is not valid, will be skipped. ')
                         continue
-
+                dataset.data['index'] = dataset.data['index'].astype(str)
                 if WORLD_SIZE > 1:
                     dist.barrier()
 
