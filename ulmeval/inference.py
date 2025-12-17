@@ -27,9 +27,9 @@ def infer_data_api(
     assert rank == 0 and world_size == 1
     dataset_name = dataset.dataset_name
     data = dataset.data
+    data['index'] = data['index'].astype(str)
     if index_set is not None:
         data = data[data['index'].isin(index_set)]
-
     model = supported_ULM[model_name]() if isinstance(model, str) else model
     assert getattr(model, 'is_api', False)
     if hasattr(model, 'set_dump_image'):
@@ -83,11 +83,11 @@ def infer_data_api(
 
     res = load(out_file)
     if index_set is not None:
-        res = {k: v for k, v in res.items() if k in index_set}
+        res = {k: v for k, v in res.items() if str(k.split('_')[0]) in index_set}
     # if num_generations > 1, we need to merge the results
     ret_res = collections.defaultdict(list)
     for k, v in res.items():
-        ret_res[k.split('_')[0]].append(v)
+        ret_res[str(k.split('_')[0])].append(v)
     res = ret_res
 
     os.remove(out_file)
@@ -108,7 +108,7 @@ def infer_data(
     sheet_indices = list(range(rank, len(dataset), world_size))
     lt = len(sheet_indices)
     data = dataset.data.iloc[sheet_indices]
-    data_indices = [i for i in data['index']]
+    data_indices = [str(i) for i in data['index']]
 
     # If finished, will exit without building the model
     all_finished = True
@@ -144,7 +144,7 @@ def infer_data(
 
     is_api = getattr(model, 'is_api', False)
     if is_api:
-        lt, indices = len(data), list(data['index'])
+        lt, indices = len(data), [str(x) for x in data['index']]
         supp = infer_data_api(
             model=model,
             work_dir=work_dir,

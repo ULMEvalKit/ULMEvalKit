@@ -11,6 +11,7 @@ from ulmeval.dataset.utils.wise import (
 )
 from ulmeval.utils.mp_util import track_progress_rich  # adjust path if needed
 from ulmeval.dataset.utils.judge_util import build_judge  # your existing judge builder
+from collections import defaultdict
 
 FAIL_MSG = 'Failed to obtain answer via API.'
 
@@ -20,7 +21,6 @@ class WISE(TextBaseDataset):
 
     TYPE = 'T2I'
     MODALITY = 'TEXT'
-    NUM_GENERATIONS = 1
 
     DATASET_URL = {
         'WISE_all': 'https://huggingface.co/datasets/CaraJ/ULMEvalKit/resolve/main/WISE_all.tsv',
@@ -29,6 +29,8 @@ class WISE(TextBaseDataset):
     DATASET_MD5 = {
         'WISE_all': 'f4fb0fd05e83bd1c5ec48a37abe91735',
     }
+
+    num_generations = 1
 
     def __init__(self, dataset='WISE_all'):
         self.dataset_name = dataset
@@ -81,6 +83,7 @@ class WISE(TextBaseDataset):
             meta_df = meta_df.drop(columns=list(dup_cols), errors='ignore')
 
         merged = pd.merge(eval_df, meta_df, on='index', how='inner')
+        self.num_generations = len(merged['prediction'][0])
         # run scoring if not already present
 
         if not osp.exists(score_file):
@@ -94,8 +97,13 @@ class WISE(TextBaseDataset):
             lt = len(data_un)
             # Build plain string prompts to avoid BaseAPI 'value' key issues
             if lt > 0:
-                score_prompts = [prepare_score_prompt(data_un.iloc[i]) for i in range(lt)]
-                indices = [data_un.iloc[i]['index'] for i in range(lt)]
+                score_prompts = []
+                for i in range(lt):
+                    score_prompts.extend(
+                        prepare_score_prompt(data_un.iloc[i])
+                    )
+                base_indices = [data_un.iloc[i]['index'] for i in range(lt)]
+                indices = [f"{idx}_{i}" for i in range(self.num_generations) for idx in base_indices]
                 score_tasks = [{'message': p} for p in score_prompts]
                 _ = track_progress_rich(
                     model.generate,      # callable(message: str) -> str
@@ -106,12 +114,25 @@ class WISE(TextBaseDataset):
                     chunksize=nproc,
                 )
                 new_map = load(tmp_file)
-                score_map = {**res, **new_map}
+                grouped_map = defaultdict(list)
+                for k, v in new_map.items():
+                    idx, _ = k.rsplit("_", 1)
+                    grouped_map[idx].append(v)
+                score_map = dict(res)
+                for idx, scores in grouped_map.items():
+                    score_map[idx] = scores
             else:
                 score_map = res
-            merged['score'] = [score_map.get(idx, FAIL_MSG) for idx in merged['index']]
+            for i in range(self.num_generations):
+                merged[f'score_{i}'] = [
+                    score_map.get(idx, [FAIL_MSG] * self.num_generations)[i]
+                    for idx in merged['index']
+                ]
+            merged['score'] = [
+                score_map.get(idx, FAIL_MSG)
+                for idx in merged['index']
+            ]
             dump(merged, score_file)
-
         rating = get_dimension_rating(self.mode, score_file)
         dump(rating, tgt_file)
         return rating

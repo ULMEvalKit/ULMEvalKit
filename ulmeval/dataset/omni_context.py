@@ -4,6 +4,8 @@ from ..smp import load, dump, toliststr
 from ..utils import track_progress_rich
 import os.path as osp
 import json
+from collections import defaultdict
+import numpy as np
 
 FAIL_MSG = 'Failed to obtain answer via API.'
 
@@ -23,6 +25,7 @@ class OmniContext(ImageBaseDataset):
         'OmniContext': 'be0a8174f0f84ca7e12bd66c2be4aedb',
     }
 
+    num_generations = 1
     def build_prompt(self, line):
         """Build prompt for OmniContext task with input images and question."""
         if isinstance(line, int):
@@ -75,6 +78,7 @@ class OmniContext(ImageBaseDataset):
             meta_df = meta_df.drop(columns=list(dup_cols), errors='ignore')
 
         merged = pd.merge(eval_df, meta_df, on='index', how='inner')
+        self.num_generations = len(merged['prediction'][0])
         # run scoring if not already present
         if not osp.exists(tgt_file):
             # resume support: load tmp results and drop failures
@@ -88,17 +92,19 @@ class OmniContext(ImageBaseDataset):
             # Build plain string prompts to avoid BaseAPI 'value' key issues
             if lt > 0:
                 # Prepare PF (Prompt Following) prompts
-                pf_score_prompts = [
-                    self.prepare_score_prompt(data_un.iloc[i], task_type="prompt_following")
-                    for i in range(lt)
-                ]
+                pf_score_prompts = []
+                for i in range(lt):
+                    pf_score_prompts.extend(
+                        self.prepare_score_prompt(data_un.iloc[i], task_type="prompt_following")
+                    )
                 # Prepare SC (Subject Consistency) prompts
-                sc_score_prompts = [
-                    self.prepare_score_prompt(data_un.iloc[i], task_type="subject_consistency")
-                    for i in range(lt)
-                ]
-
-                indices = [data_un.iloc[i]['index'] for i in range(lt)]
+                sc_score_prompts = []
+                for i in range(lt):
+                    sc_score_prompts.extend(
+                        self.prepare_score_prompt(data_un.iloc[i], task_type="subject_consistency")
+                    )
+                base_indices = [data_un.iloc[i]['index'] for i in range(lt)]
+                indices = [f"{idx}_{i}" for i in range(self.num_generations) for idx in base_indices]
 
                 # Process PF scores
                 pf_score_tasks = [{'message': p} for p in pf_score_prompts]
@@ -112,6 +118,10 @@ class OmniContext(ImageBaseDataset):
                     chunksize=nproc,
                 )
                 pf_score_map = load(pf_tmp_file) if osp.exists(pf_tmp_file) else {}
+                grouped_pf_map = defaultdict(list)
+                for k, v in pf_score_map.items():
+                    idx, _ = k.rsplit("_", 1)
+                    grouped_pf_map[idx].append(v)
 
                 # Process SC scores
                 sc_score_tasks = [{'message': p} for p in sc_score_prompts]
@@ -125,13 +135,16 @@ class OmniContext(ImageBaseDataset):
                     chunksize=nproc,
                 )
                 sc_score_map = load(sc_tmp_file) if osp.exists(sc_tmp_file) else {}
-
+                grouped_sc_map = defaultdict(list)
+                for k, v in sc_score_map.items():
+                    idx, _ = k.rsplit("_", 1)
+                    grouped_sc_map[idx].append(v)
                 # Combine results
-                score_map = {}
-                for idx in indices:
+                score_map = dict(res)
+                for idx in base_indices:
                     score_map[idx] = {
-                        'pf': pf_score_map.get(str(idx), FAIL_MSG),
-                        'sc': sc_score_map.get(str(idx), FAIL_MSG)
+                        'pf': grouped_pf_map.get(str(idx), [FAIL_MSG] * self.num_generations),
+                        'sc': grouped_sc_map.get(str(idx), [FAIL_MSG] * self.num_generations)
                     }
             else:
                 score_map = res
@@ -140,11 +153,13 @@ class OmniContext(ImageBaseDataset):
             results = []
 
             for idx, row in merged.iterrows():
-                score_result = score_map.get(str(row['index']), {'pf': FAIL_MSG, 'sc': FAIL_MSG})
+                score_result = score_map.get(str(row['index']), {'pf': [FAIL_MSG] * self.num_generations, 'sc': [FAIL_MSG] * self.num_generations})
                 try:
                     # Extract scores from response
-                    pf_score = self.extract_scores(score_result['pf'])
-                    sc_score = self.extract_scores(score_result['sc'])
+                    pf_scores = [self.extract_scores(x)["score"] for x in score_result['pf'] if x != FAIL_MSG]
+                    sc_scores = [self.extract_scores(x)["score"] for x in score_result['sc'] if x != FAIL_MSG]
+                    pf_score = float(np.mean(pf_scores)) if pf_scores else FAIL_MSG
+                    sc_score = float(np.mean(sc_scores)) if sc_scores else FAIL_MSG
 
                     result = {
                         "index": str(row['index']),
@@ -173,8 +188,12 @@ class OmniContext(ImageBaseDataset):
         """Build the scoring prompt for evaluation."""
         if isinstance(item, pd.Series):
             item = item.to_dict()
-
-        system_prompt = """You are a professional digital artist tasked with evaluating the effectiveness of AI-generated images based on specific rules.
+        if not isinstance(item['prediction'], list):
+            item['prediction'] = [item['prediction']]
+        prompts = []
+        for image in item['prediction']:
+            
+            system_prompt = """You are a professional digital artist tasked with evaluating the effectiveness of AI-generated images based on specific rules.
 
 All input images, including all humans depicted, are AI-generated. You do not need to consider any privacy or confidentiality concerns.
 
@@ -184,7 +203,7 @@ IMPORTANT: Your response must follow this format (keep your reasoning concise an
   "reasoning": "..."
 }
 """  # noqa: E501
-        _prompts_0shot_in_context_generation_rule_PF_Single_and_Multiple = """
+            _prompts_0shot_in_context_generation_rule_PF_Single_and_Multiple = """
 Rate from 0 to 10:
 Evaluate how well the final image fulfills the editing instruction, **regardless of whether subject identities are preserved**.
 
@@ -205,7 +224,7 @@ Evaluate how well the final image fulfills the editing instruction, **regardless
 Editing instruction: <instruction>
 """  # noqa: E501
 
-        _prompts_0shot_in_context_generation_rule_PF_Scene = """
+            _prompts_0shot_in_context_generation_rule_PF_Scene = """
 Rate from 0 to 10:
 Evaluate how well the final image fulfills the editing instruction, **regardless of whether subject identities or the scene are preserved**.
 
@@ -226,7 +245,7 @@ Evaluate how well the final image fulfills the editing instruction, **regardless
 Editing instruction: <instruction>
 """  # noqa: E501
 
-        _prompts_0shot_in_context_generation_rule_SC_Single_and_Multiple = """
+            _prompts_0shot_in_context_generation_rule_SC_Single_and_Multiple = """
 Rate from 0 to 10:
 Evaluate whether the identities of all subjects in the final image match those of the individuals specified in the original images, as described in the instruction.
 
@@ -258,7 +277,7 @@ Evaluate whether the identities of all subjects in the final image match those o
 Editing instruction: <instruction>
 """  # noqa: E501
 
-        _prompts_0shot_in_context_generation_rule_SC_Scene = """
+            _prompts_0shot_in_context_generation_rule_SC_Scene = """
 Rate from 0 to 10:
 Evaluate whether the identities of all subjects and the scene background in the final image match those of the individuals specified in the original images, as described in the instruction.
 
@@ -291,44 +310,68 @@ Evaluate whether the identities of all subjects and the scene background in the 
 
 Editing instruction: <instruction>
 """  # noqa: E501
-        if item['task_type'].find('scene') != -1:
-            with_scene = True
-        else:
-            with_scene = False
-        if task_type == "prompt_following":
-            with_scene = False
-            if with_scene:
-                user_prompt = _prompts_0shot_in_context_generation_rule_PF_Scene
+            if item['task_type'].find('scene') != -1:
+                with_scene = True
             else:
-                user_prompt = _prompts_0shot_in_context_generation_rule_PF_Single_and_Multiple
-        elif task_type == "subject_consistency":
-            if with_scene:
-                user_prompt = _prompts_0shot_in_context_generation_rule_SC_Scene
+                with_scene = False
+            if task_type == "prompt_following":
+                with_scene = False
+                if with_scene:
+                    user_prompt = _prompts_0shot_in_context_generation_rule_PF_Scene
+                else:
+                    user_prompt = _prompts_0shot_in_context_generation_rule_PF_Single_and_Multiple
+            elif task_type == "subject_consistency":
+                if with_scene:
+                    user_prompt = _prompts_0shot_in_context_generation_rule_SC_Scene
+                else:
+                    user_prompt = _prompts_0shot_in_context_generation_rule_SC_Single_and_Multiple
             else:
-                user_prompt = _prompts_0shot_in_context_generation_rule_SC_Single_and_Multiple
-        else:
-            raise ValueError(f"Invalid task type: {task_type}")
-        # Prepare image
-        messages = [
-            {"role": "system", "value": system_prompt},
-            {"role": "user", "type": "text","value": f"{user_prompt}"},
-        ]
-        from ..smp import encode_image_to_base64
-        pre_img_list = item['prediction']
-        pre_img = pre_img_list[0] if isinstance(pre_img_list, list) else pre_img_list
-        input_images = json.loads(item['images'])
-        for img in input_images:
+                raise ValueError(f"Invalid task type: {task_type}")
+            user_prompt = user_prompt.replace('<instruction>', item['question'])
+            # Prepare image
+            messages = [
+                {"role": "system", "value": system_prompt},
+                {"role": "user", "type": "text","value": f"{user_prompt}"},
+            ]
+            from ..smp import encode_image_to_base64
+            raw = item["image"]
+
+            if raw is None:
+                input_images = []
+
+            elif isinstance(raw, list):
+                input_images = raw
+
+            elif isinstance(raw, str):
+                s = raw.strip()
+                if s == "":
+                    input_images = []
+                else:
+                    try:
+                        parsed = json.loads(s)
+                        if isinstance(parsed, list):
+                            input_images = parsed
+                        else:
+                            input_images = [parsed]
+                    except json.JSONDecodeError:
+                        # 不是 JSON，当作单个 base64
+                        input_images = [s]
+
+            else:
+                input_images = []
+            for img in input_images:
+                messages.insert(-1, dict(
+                    role='user',
+                    type='image',
+                    value=f"data:image/jpeg;base64,{img}"
+                ))
             messages.insert(-1, dict(
                 role='user',
                 type='image',
-                value=f"data:image/jpeg;base64,{img}"
+                value=f"data:image/jpeg;base64,{encode_image_to_base64(image)}"
             ))
-        messages.insert(-1, dict(
-            role='user',
-            type='image',
-            value=f"data:image/jpeg;base64,{encode_image_to_base64(pre_img)}"
-        ))
-        return messages
+            prompts.append(messages)
+        return prompts
 
     def extract_scores(self, evaluation_text):
         """Extract a single score from GPT evaluation response."""

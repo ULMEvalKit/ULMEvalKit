@@ -69,73 +69,77 @@ def prepare_score_prompt(item):
     # Convert pandas Series to dict if needed
     if isinstance(item, pd.Series):
         item = item.to_dict()
-
-    lines = [
-        "You are an AI quality auditor for text-to-image generation. Apply these rules with ABSOLUTE "
-        "RUTHLESSNESS.",
-        "Only images meeting the HIGHEST standards should receive top scores.",
-        "",
-        "**Input Parameters**",
-        "- PROMPT: [User's original prompt]",
-        "- EXPLANATION: [Further explanation of the original prompt]",
-        "---",
-        "",
-        "## Scoring Criteria",
-        "",
-        "**Consistency (0-2):** How accurately and completely the image reflects the PROMPT.",
-        "* **0 (Rejected):** Fails to capture key elements of the prompt, or contradicts the prompt.",
-        "* **1 (Conditional):** Partially captures the prompt. Some elements are present, but not all, "
-        "or not accurately. Noticeable deviations from the prompt's intent.",
-        "* **2 (Exemplary):** Perfectly and completely aligns with the PROMPT. Every single element and "
-        "nuance of the prompt is flawlessly represented in the image. The image is an ideal, "
-        "unambiguous visual realization of the given prompt.",
-        "",
-        "**Realism (0-2):** How realistically the image is rendered.",
-        "* **0 (Rejected):** Physically implausible and clearly artificial. Breaks fundamental laws of "
-        "physics or visual realism.",
-        "* **1 (Conditional):** Contains minor inconsistencies or unrealistic elements. While somewhat "
-        "believable, noticeable flaws detract from realism.",
-        "* **2 (Exemplary):** Achieves photorealistic quality, indistinguishable from a real photograph. "
-        "Flawless adherence to physical laws, accurate material representation, and coherent spatial "
-        "relationships. No visual cues betraying AI generation.",
-        "",
-        "**Aesthetic Quality (0-2):** The overall artistic appeal and visual quality of the image.",
-        "* **0 (Rejected):** Poor aesthetic composition, visually unappealing, and lacks artistic merit.",
-        "* **1 (Conditional):** Demonstrates basic visual appeal, acceptable composition, and color "
-        "harmony, but lacks distinction or artistic flair.",
-        "* **2 (Exemplary):** Possesses exceptional aesthetic quality, comparable to a masterpiece. "
-        "Strikingly beautiful, with perfect composition, a harmonious color palette, and a captivating "
-        "artistic style. Demonstrates a high degree of artistic vision and execution.",
-        "",
-        "---",
-        "",
-        "## Output Format",
-        "",
-        "**Do not include any other text, explanations, or labels.** Return exactly three lines:",
-        "Consistency: <0|1|2>",
-        "Realism: <0|1|2>",
-        "Aesthetic Quality: <0|1|2>",
-        "",
-        "---",
-        "",
-        "**IMPORTANT Enforcement:**",
-        "Be EXTREMELY strict. A score of '2' is rare and only for the very best images.",
-        "If in doubt, downgrade.",
-        "",
-        "For Consistency, '2' means complete, flawless adherence to every aspect of the prompt.",
-        "For Realism, '2' means virtually indistinguishable from a real photograph.",
-        "For Aesthetic Quality, '2' requires exceptional artistic merit.",
-        "",
-        "---",
-        "Here are the inputs for this evaluation:",
-        f'PROMPT: "{item["prompt"]}"',
-        f'EXPLANATION: "{item["explanation"]}"',
-        "IMAGE (PNG, base64 data URL):",
-        "data:image/png;base64, " + encode_image_to_base64(item["prediction"]),
-        "",
-        "Please strictly follow the criteria and output template."
-    ]
-    return "\n".join(lines)
+    if not isinstance(item['prediction'], list):
+        item['prediction'] = [item['prediction']]
+    prompts = []
+    for image in item['prediction']:
+        lines = [
+            "You are an AI quality auditor for text-to-image generation. Apply these rules with ABSOLUTE "
+            "RUTHLESSNESS.",
+            "Only images meeting the HIGHEST standards should receive top scores.",
+            "",
+            "**Input Parameters**",
+            "- PROMPT: [User's original prompt]",
+            "- EXPLANATION: [Further explanation of the original prompt]",
+            "---",
+            "",
+            "## Scoring Criteria",
+            "",
+            "**Consistency (0-2):** How accurately and completely the image reflects the PROMPT.",
+            "* **0 (Rejected):** Fails to capture key elements of the prompt, or contradicts the prompt.",
+            "* **1 (Conditional):** Partially captures the prompt. Some elements are present, but not all, "
+            "or not accurately. Noticeable deviations from the prompt's intent.",
+            "* **2 (Exemplary):** Perfectly and completely aligns with the PROMPT. Every single element and "
+            "nuance of the prompt is flawlessly represented in the image. The image is an ideal, "
+            "unambiguous visual realization of the given prompt.",
+            "",
+            "**Realism (0-2):** How realistically the image is rendered.",
+            "* **0 (Rejected):** Physically implausible and clearly artificial. Breaks fundamental laws of "
+            "physics or visual realism.",
+            "* **1 (Conditional):** Contains minor inconsistencies or unrealistic elements. While somewhat "
+            "believable, noticeable flaws detract from realism.",
+            "* **2 (Exemplary):** Achieves photorealistic quality, indistinguishable from a real photograph. "
+            "Flawless adherence to physical laws, accurate material representation, and coherent spatial "
+            "relationships. No visual cues betraying AI generation.",
+            "",
+            "**Aesthetic Quality (0-2):** The overall artistic appeal and visual quality of the image.",
+            "* **0 (Rejected):** Poor aesthetic composition, visually unappealing, and lacks artistic merit.",
+            "* **1 (Conditional):** Demonstrates basic visual appeal, acceptable composition, and color "
+            "harmony, but lacks distinction or artistic flair.",
+            "* **2 (Exemplary):** Possesses exceptional aesthetic quality, comparable to a masterpiece. "
+            "Strikingly beautiful, with perfect composition, a harmonious color palette, and a captivating "
+            "artistic style. Demonstrates a high degree of artistic vision and execution.",
+            "",
+            "---",
+            "",
+            "## Output Format",
+            "",
+            "**Do not include any other text, explanations, or labels.** Return exactly three lines:",
+            "Consistency: <0|1|2>",
+            "Realism: <0|1|2>",
+            "Aesthetic Quality: <0|1|2>",
+            "",
+            "---",
+            "",
+            "**IMPORTANT Enforcement:**",
+            "Be EXTREMELY strict. A score of '2' is rare and only for the very best images.",
+            "If in doubt, downgrade.",
+            "",
+            "For Consistency, '2' means complete, flawless adherence to every aspect of the prompt.",
+            "For Realism, '2' means virtually indistinguishable from a real photograph.",
+            "For Aesthetic Quality, '2' requires exceptional artistic merit.",
+            "",
+            "---",
+            "Here are the inputs for this evaluation:",
+            f'PROMPT: "{item["prompt"]}"',
+            f'EXPLANATION: "{item["explanation"]}"',
+            "IMAGE (PNG, base64 data URL):",
+            "data:image/png;base64, " + encode_image_to_base64(image),
+            "",
+            "Please strictly follow the criteria and output template."
+        ]
+        prompts.append("\n".join(lines))
+    return prompts
 
 
 def calculate_wiscore(consistency: int, realism: int, aesthetic_quality: int) -> float:
@@ -172,51 +176,45 @@ def get_dimension_rating(mode, data_path: str) -> Dict[str, Dict[str, str]]:
     if not isinstance(data, pd.DataFrame):
         raise TypeError("Loaded score file must be a pandas DataFrame.")
 
-    bucket: Dict[str, List[float]] = {k: [] for k in WISE_DIMENSIONS}
+    bucket = {k: [] for k in WISE_DIMENSIONS}
     for i in range(len(data)):
         row = data.iloc[i]
-        ci_raw = row.get('discipline', '')
-        discipline = str(ci_raw).strip().upper()
-        parsed = parse_score_dict(row.get('score'))
-        if parsed is None:
+        discipline = str(row.get('discipline', '')).strip().upper()
+        scores = row.get('score')
+        if not isinstance(scores, list):
+            scores = [scores]
+        parsed_scores = [parse_score_dict(s) for s in scores]
+        parsed_scores = [p for p in parsed_scores if p is not None]
+        if not parsed_scores:
             continue
-        c, r, a = parsed
+
+        c = float(np.mean([p[0] for p in parsed_scores]))
+        r = float(np.mean([p[1] for p in parsed_scores]))
+        a = float(np.mean([p[2] for p in parsed_scores]))
+
         wiscore = calculate_wiscore(c, r, a)
         if discipline in bucket:
             bucket[discipline].append(wiscore)
         bucket['overall'].append(wiscore)
 
-    def mean2(xs: List[float]) -> float:
-        vals = [x for x in xs if x is not None]
-        if not vals:
+    def mean2(xs):
+        xs = [x for x in xs if x is not None and x >= 0]
+        if not xs:
             return 0.0
-        return float(np.round(np.mean(vals), 2))
+        return float(np.round(np.mean(xs), 2))
 
-    coarse_valid = {}
-    for k, v in bucket.items():
-        valid_vals = [x for x in v if x >= 0]
-        if valid_vals:
-            coarse_valid[k] = mean2(valid_vals)
-        else:
-            coarse_valid[k] = 0.0
-
-    cultural_score = float(coarse_valid.get('CULTURE', 0.0))
-    time_score = float(coarse_valid.get('TIME', 0.0))
-    space_score = float(coarse_valid.get('SPACE', 0.0))
-    biology_score = float(coarse_valid.get('BIOLOGY', 0.0))
-    physics_score = float(coarse_valid.get('PHYSICS', 0.0))
-    chemistry_score = float(coarse_valid.get('CHEMISTRY', 0.0))
+    coarse_valid = {k: mean2(v) for k, v in bucket.items()}
 
     if mode:
-        overall_wiscore = (
-            0.4 * cultural_score
-            + 0.167 * time_score
-            + 0.133 * space_score
-            + 0.1 * biology_score
-            + 0.1 * physics_score
-            + 0.1 * chemistry_score
+        overall = (
+            0.4 * coarse_valid.get('CULTURE', 0.0)
+            + 0.167 * coarse_valid.get('TIME', 0.0)
+            + 0.133 * coarse_valid.get('SPACE', 0.0)
+            + 0.1 * coarse_valid.get('BIOLOGY', 0.0)
+            + 0.1 * coarse_valid.get('PHYSICS', 0.0)
+            + 0.1 * coarse_valid.get('CHEMISTRY', 0.0)
         )
-        coarse_valid['OVERALL'] = round(overall_wiscore, 2)
+        coarse_valid['OVERALL'] = round(overall, 2)
     return dict(
         coarse_valid=coarse_valid
     )
